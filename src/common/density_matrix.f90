@@ -45,6 +45,32 @@ contains
 #ifdef USE_OPENACC
     integer :: tid_offset
 #endif
+#ifdef __ve__
+    logical, save :: first = .true.
+    logical, save :: collapse = .true.
+    integer, save :: xs, xe, xl, ys, ye, yl, zs, ze, zl, ll, ll_
+
+    if(first) then
+      xs = lbound(psi%zwf,1)
+      xe = ubound(psi%zwf,1)
+      xl = xe - xs + 1
+      ys = lbound(psi%zwf,2)
+      ye = ubound(psi%zwf,2)
+      yl = ye - ys + 1
+      zs = lbound(psi%zwf,3)
+      ze = ubound(psi%zwf,3)
+      zl = ze - zs + 1
+
+      if(mg%is(1) /= xs) collapse = .false.
+      if(mg%ie(1) /= xe) collapse = .false.
+      if(mg%is(2) /= ys) collapse = .false.
+      if(mg%ie(2) /= ye) collapse = .false.
+      if(mg%is(3) /= zs) collapse = .false.
+      if(mg%ie(3) /= ze) collapse = .false.
+
+      first = .false.
+    end if
+#endif
 
     call timer_begin(LOG_DENSITY_CALC)
     
@@ -111,8 +137,11 @@ contains
 #else
 !$omp parallel private(ik,io,iz,iy,ix,wrk2) firstprivate(tid)
 !$      tid = get_thread_id()
+!call ftrace_region_begin('region000')
         wrk(:,:,:,tid) = 0.d0
+!call ftrace_region_end('region000')
 
+!call ftrace_region_begin('region001')
 !$omp do collapse(4)
         do ik=info%ik_s,info%ik_e
         do io=info%io_s,info%io_e
@@ -127,11 +156,14 @@ contains
         end do
         end do
 !$omp end do
+!call ftrace_region_end('region001')
 
         ix = size(wrk,4)/2
         do while(ix > 0)
           if(tid < ix .and. tid + ix < nthreads) then
+!call ftrace_region_begin('region002')
             wrk(:,:,:,tid) = wrk(:,:,:,tid) + wrk(:,:,:,tid + ix)
+!call ftrace_region_end('region002')
           end if
           ix = ix/2
 !$omp barrier
@@ -189,8 +221,14 @@ contains
 #else
 !$omp parallel private(ik,io,iz,iy,ix,wrk2) firstprivate(tid)
 !$      tid = get_thread_id()
+!call ftrace_region_begin('region003')
         wrk(:,:,:,tid) = 0.d0
+!call ftrace_region_end('region003')
 
+!call ftrace_region_begin('region004')
+#ifdef __ve__
+        if(.not. collapse) then
+#endif
 !$omp do collapse(4)
         do ik=info%ik_s,info%ik_e
         do io=info%io_s,info%io_e
@@ -205,11 +243,28 @@ contains
         end do
         end do
 !$omp end do
+#ifdef __ve__
+        else
+!NEC$ novector
+        do ik=info%ik_s,info%ik_e
+!NEC$ novector
+        do io=info%io_s,info%io_e
+        do ll=1,xl*yl*zl
+          wrk2 = abs( psi%zwf(xs+ll-1,ys,zs,ispin,io,ik,im) )**2
+          wrk(xs+ll-1,ys,zs,tid) = wrk(xs+ll-1,ys,zs,tid) + wrk2 * system%rocc(io,ik,ispin)*system%wtk(ik)
+        end do
+        end do
+        end do
+        end if
+#endif
+!call ftrace_region_end('region004')
 
         ix = size(wrk,4)/2
         do while(ix > 0)
           if(tid < ix .and. tid + ix < nthreads) then
+!call ftrace_region_begin('region005')
             wrk(:,:,:,tid) = wrk(:,:,:,tid) + wrk(:,:,:,tid + ix)
+!call ftrace_region_end('region005')
           end if
           ix = ix/2
 !$omp barrier
@@ -449,10 +504,39 @@ contains
     integer :: ix,iy,iz
     real(8) :: rtmp
     complex(8) :: cpsi,xtmp,ytmp,ztmp
+#ifdef __ve__
+    integer, parameter :: blksz = 256
+    logical, save :: first = .true.
+    logical, save :: collapse = .true.
+    integer, save :: xs, xe, xl, ys, ye, yl, zs, ze, zl, ll, ll_
+
+    if(first) then
+      xs = is(1)
+      xe = ie(1)
+      xl = xe - xs + 1
+      ys = is(2)
+      ye = ie(2)
+      yl = ye - ys + 1
+      zs = is(3)
+      ze = ie(3)
+      zl = ze - zs + 1
+
+      if((ie(1)-is(1)+1 > 256) .or. (ie(2)-is(2)+1 > 256)) collapse = .false.
+      if(is_array(1) /= is(1)) collapse = .false.
+      if(ie_array(1) /= ie(1)) collapse = .false.
+      if(is_array(2) /= is(2)) collapse = .false.
+      if(ie_array(2) /= ie(2)) collapse = .false.
+
+      first = .false.
+    end if
+#endif
     rtmp = 0d0
     xtmp = 0d0
     ytmp = 0d0
     ztmp = 0d0
+#ifdef __ve__
+  if(.not. collapse) then
+#endif
 #ifdef USE_OPENACC
 !$acc loop vector collapse(2) private(iz,iy,ix,cpsi) reduction(+:rtmp,xtmp,ytmp,ztmp)
 #else
@@ -497,6 +581,59 @@ contains
     end do
 #ifndef USE_OPENACC
 !$omp end parallel do
+#endif
+#ifdef __ve__
+    else
+!   call ftrace_region_begin('x-direc')
+    do ll_=1,yl*zl,blksz
+!NEC$ shortloop
+    do ix=is(1),ie(1)
+!NEC$ nointerchange
+!NEC$ shortloop
+    do ll=ll_,min(ll_+blksz-1,yl*zl)
+      cpsi = conjg(psi(ix,ys+ll-1,zs))
+      xtmp = xtmp + nabt(1,1) * cpsi * psi(idx(ix+1),ys+ll-1,zs) &
+                  + nabt(2,1) * cpsi * psi(idx(ix+2),ys+ll-1,zs) &
+                  + nabt(3,1) * cpsi * psi(idx(ix+3),ys+ll-1,zs) &
+                  + nabt(4,1) * cpsi * psi(idx(ix+4),ys+ll-1,zs)
+    end do
+    end do
+    end do
+!   call ftrace_region_end('x-direc')
+
+!   call ftrace_region_begin('y-direc')
+    do iz=is(3),ie(3)
+!NEC$ shortloop
+    do iy=is(2),ie(2)
+!NEC$ shortloop
+    do ix=is(1),ie(1)
+      cpsi = conjg(psi(ix,iy,iz))
+      ytmp = ytmp + nabt(1,2) * cpsi * psi(ix,idy(iy+1),iz) &
+                  + nabt(2,2) * cpsi * psi(ix,idy(iy+2),iz) &
+                  + nabt(3,2) * cpsi * psi(ix,idy(iy+3),iz) &
+                  + nabt(4,2) * cpsi * psi(ix,idy(iy+4),iz)
+    end do
+    end do
+    end do
+!   call ftrace_region_end('y-direc')
+
+!   call ftrace_region_begin('z-direc')
+    do ll_=1,xl*yl,blksz
+    do iz=is(3),ie(3)
+!NEC$ shortloop
+    do ll=ll_,min(ll_+blksz-1,xl*yl)
+      rtmp = rtmp + abs(psi(xs+ll-1,ys,iz))**2
+
+      cpsi = conjg(psi(xs+ll-1,ys,iz))
+      ztmp = ztmp + nabt(1,3) * cpsi * psi(xs+ll-1,ys,idz(iz+1)) &
+                  + nabt(2,3) * cpsi * psi(xs+ll-1,ys,idz(iz+2)) &
+                  + nabt(3,3) * cpsi * psi(xs+ll-1,ys,idz(iz+3)) &
+                  + nabt(4,3) * cpsi * psi(xs+ll-1,ys,idz(iz+4))
+    end do
+    end do
+    end do
+!   call ftrace_region_end('z-direc')
+    end if
 #endif
     j1 = kAc(:) * rtmp
     j2(1) = aimag(xtmp * 2d0)

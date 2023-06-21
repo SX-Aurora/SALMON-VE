@@ -304,7 +304,7 @@ contains
 #else
 #ifndef __NVCOMPILER_LLVM__ 
 ! FIXME: NVIDIA compiler crashes with nested omp parallel clause.
-!$omp parallel do private(ilocal,ilma,ia,duVpsi,j,ix,iy,iz,w) reduction(+:F_tmp)
+!!$omp parallel do private(ilocal,ilma,ia,duVpsi,j,ix,iy,iz,w) reduction(+:F_tmp)
 #endif
        do ilocal=1,ppg%ilocal_nlma
           ilma=ppg%ilocal_nlma2ilma(ilocal)
@@ -329,7 +329,7 @@ contains
        end do
 #ifndef __NVCOMPILER_LLVM__ 
 ! FIXME: NVIDIA compiler crashes with nested omp parallel clause.
-!$omp end parallel do
+!!$omp end parallel do
 #endif
 #endif
        end if

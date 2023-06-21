@@ -2074,7 +2074,11 @@ contains
 
     ! write/read file
     MPI_CHECK(MPI_File_open(icomm, iofile, iopen_flag, minfo, mfile, ierr))
+#ifdef __ve__
+    MPI_CHECK(MPI_File_set_view(mfile, 0_MPI_OFFSET_KIND, source_type, global_type, 'native', MPI_INFO_NULL, ierr))
+#else
     MPI_CHECK(MPI_File_set_view(mfile, 0_MPI_OFFSET_KIND, local_type, global_type, 'native', MPI_INFO_NULL, ierr))
+#endif
 
     select case(rw_mode)
       case (write_mode)
@@ -2185,7 +2189,11 @@ contains
 
       ! write/read file
       MPI_CHECK(MPI_File_open(icomm, iofile, iopen_flag, minfo, mfile, ierr))
+#ifdef __ve__
+      MPI_CHECK(MPI_File_set_view(mfile, 0_MPI_OFFSET_KIND, source_type, global_type, 'native', MPI_INFO_NULL, ierr))
+#else
       MPI_CHECK(MPI_File_set_view(mfile, 0_MPI_OFFSET_KIND, local_type, global_type, 'native', MPI_INFO_NULL, ierr))
+#endif
 
       select case(rw_mode)
         case (write_mode)

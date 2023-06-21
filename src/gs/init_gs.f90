@@ -95,7 +95,7 @@ SUBROUTINE init_wf(lg,mg,system,info,spsi)
 #ifdef USE_OPENACC
 !$acc parallel loop collapse(2) private(iz,iy,ix,xx,yy,zz,rr)
 #else
-!$OMP parallel do collapse(2) private(iz,iy,ix,xx,yy,zz,rr)
+!!$OMP parallel do collapse(2) private(iz,iy,ix,xx,yy,zz,rr)
 #endif
           do iz=mg%is(3),mg%ie(3)
           do iy=mg%is(2),mg%ie(2)
@@ -116,7 +116,7 @@ SUBROUTINE init_wf(lg,mg,system,info,spsi)
 #ifdef USE_OPENACC
 !$acc end parallel
 #else
-!$omp end parallel do
+!!$omp end parallel do
 #endif
         end if
       end do !ig

@@ -424,6 +424,233 @@ contains
   
     return
   End Function Ylm
+#ifdef __ve__
+! Ylm when ilm=1
+  Function Ylm01(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm01,r2
+    r2=x*x+y*y+z*z
+    Ylm01=1.d0                                     ! ilm=1  (0  0)
+    return
+  End Function Ylm01
+! Ylm when ilm=2
+  Function Ylm02(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm02,r2
+    r2=x*x+y*y+z*z
+    Ylm02=-y                                       ! ilm=2  (1 -1)
+    return
+  End Function Ylm02
+! Ylm when ilm=3
+  Function Ylm03(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm03,r2
+    r2=x*x+y*y+z*z
+    Ylm03=z                                        ! ilm=3  (1  0)
+    return
+  End Function Ylm03
+! Ylm when ilm=4
+  Function Ylm04(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm04,r2
+    r2=x*x+y*y+z*z
+    Ylm04=-x                                       ! ilm=4  (1  1)
+    return
+  End Function Ylm04
+! Ylm when ilm=5
+  Function Ylm05(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm05,r2
+    r2=x*x+y*y+z*z
+    Ylm05=sqrt(3.d0)*x*y                           ! ilm=5  (2 -2)
+    return
+  End Function Ylm05
+! Ylm when ilm=6
+  Function Ylm06(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm06,r2
+    r2=x*x+y*y+z*z
+    Ylm06=-sqrt(3.d0)*y*z                          ! ilm=6  (2 -1)
+    return
+  End Function Ylm06
+! Ylm when ilm=7
+  Function Ylm07(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm07,r2
+    r2=x*x+y*y+z*z
+    Ylm07=(3.d0*z*z-r2)/2.d0                       ! ilm=7  (2  0)
+    return
+  End Function Ylm07
+! Ylm when ilm=8
+  Function Ylm08(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm08,r2
+    r2=x*x+y*y+z*z
+    Ylm08=-sqrt(3.d0)*x*z                          ! ilm=8  (2  1)
+    return
+  End Function Ylm08
+! Ylm when ilm=9
+  Function Ylm09(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm09,r2
+    r2=x*x+y*y+z*z
+    Ylm09=sqrt(3.d0/4.d0)*(x*x-y*y)                ! ilm=9  (2  2)
+    return
+  End Function Ylm09
+! Ylm when ilm=10
+  Function Ylm10(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm10,r2
+    r2=x*x+y*y+z*z
+    Ylm10=-sqrt(5.d0/8.d0)*y*(3*x*x-y*y)           ! ilm=10 (3 -3)
+    return
+  End Function Ylm10
+! Ylm when ilm=11
+  Function Ylm11(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm11,r2
+    r2=x*x+y*y+z*z
+    Ylm11=sqrt(15.d0)*x*y*z                        ! ilm=11 (3 -2)
+    return
+  End Function Ylm11
+! Ylm when ilm=12
+  Function Ylm12(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm12,r2
+    r2=x*x+y*y+z*z
+    Ylm12=-sqrt(3.d0/8.d0)*y*(5.d0*z*z-r2)         ! ilm=12 (3 -1)
+    return
+  End Function Ylm12
+! Ylm when ilm=13
+  Function Ylm13(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm13,r2
+    r2=x*x+y*y+z*z
+    Ylm13=z*(5.d0*z*z-3*r2)/2.d0                   ! ilm=13 (3  0)
+    return
+  End Function Ylm13
+! Ylm when ilm=14
+  Function Ylm14(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm14,r2
+    r2=x*x+y*y+z*z
+    Ylm14=-sqrt(3.d0/8.d0)*x*(5.d0*z*z-r2)         ! ilm=14 (3  1)
+    return
+  End Function Ylm14
+! Ylm when ilm=15
+  Function Ylm15(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm15,r2
+    r2=x*x+y*y+z*z
+    Ylm15=sqrt(15.d0/4.d0)*z*(x*x-y*y)             ! ilm=15 (3  2)
+    return
+  End Function Ylm15
+! Ylm when ilm=16
+  Function Ylm16(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm16,r2
+    r2=x*x+y*y+z*z
+    Ylm16=-sqrt(5.d0/8.d0)*x*(x*x-3.d0*y*y)        ! ilm=16 (3  3)
+    return
+  End Function Ylm16
+! Ylm when ilm=17
+  Function Ylm17(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm17,r2
+    r2=x*x+y*y+z*z
+    Ylm17=sqrt(35.d0)/2.d0*x*y*(x*x-y*y)           ! ilm=17 (4 -4)
+    return
+  End Function Ylm17
+! Ylm when ilm=18
+  Function Ylm18(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm18,r2
+    r2=x*x+y*y+z*z
+    Ylm18=-sqrt(35.d0/8.d0)*y*z*(3.d0*x*x-y*y)     ! ilm=18 (4 -3)
+    return
+  End Function Ylm18
+! Ylm when ilm=19
+  Function Ylm19(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm19,r2
+    r2=x*x+y*y+z*z
+    Ylm19=sqrt(5.d0)/2.d0*x*y*(7.d0*z*z-r2)        ! ilm=19 (4 -2)
+    return
+  End Function Ylm19
+! Ylm when ilm=20
+  Function Ylm20(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm20,r2
+    r2=x*x+y*y+z*z
+    Ylm20=-sqrt(5.d0/8.d0)*y*z*(7.d0*z*z-3.d0*r2)  ! ilm=20 (4 -1)
+    return
+  End Function Ylm20
+! Ylm when ilm=21
+  Function Ylm21(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm21,r2
+    r2=x*x+y*y+z*z
+    Ylm21=(35.d0*z**4-30.d0*z*z*r2+3.d0*r2*r2)/8.d0! ilm=21 (4  0)
+    return
+  End Function Ylm21
+! Ylm when ilm=22
+  Function Ylm22(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm22,r2
+    r2=x*x+y*y+z*z
+    Ylm22=-sqrt(5.d0/8.d0)*x*z*(7.d0*z**2-3.d0*r2) ! ilm=22 (4  1)
+    return
+  End Function Ylm22
+! Ylm when ilm=23
+  Function Ylm23(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm23,r2
+    r2=x*x+y*y+z*z
+    Ylm23=sqrt(5.d0)/4.d0*(7.d0*z*z-r2)*(x*x-y*y)  ! ilm=23 (4  2)
+    return
+  End Function Ylm23
+! Ylm when ilm=24
+  Function Ylm24(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm24,r2
+    r2=x*x+y*y+z*z
+    Ylm24=-sqrt(35.d0/8.d0)*x*z*(x*x-3.d0*y*y)     ! ilm=24 (4  3)
+    return
+  End Function Ylm24
+! Ylm when ilm=25
+  Function Ylm25(x,y,z)
+    implicit none
+    real(8),intent(IN) :: x,y,z
+    real(8) :: Ylm25,r2
+    r2=x*x+y*y+z*z
+    Ylm25=sqrt(35.d0)/8.d0*(x**4+y**4-6.d0*x*x*y*y)! ilm=25 (4  4)
+    return
+  End Function Ylm25
+#endif
 !--------10--------20--------30--------40--------50--------60--------70--------80--------90--------100-------110-------120-------130
   Function dYlm(x,y,z,il,im,idir)
     implicit none

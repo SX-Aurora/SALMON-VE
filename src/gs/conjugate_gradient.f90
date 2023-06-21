@@ -40,6 +40,10 @@ subroutine gscg_rwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
   !
   integer,parameter :: nd=4
   integer :: nspin,io,ispin,io_s,io_e,is(3),ie(3),iy,iz
+#ifdef __ve__
+  integer :: ipos,ix0,iy0,ix,nx,ny
+  logical,allocatable::rwf_wk(:)
+#endif
   integer :: iter
   real(8),dimension(system%nspin,system%no) :: sum,xkxk,xkHxk,xkHpk,pkHpk,gkgk,uk,ev,cx,cp,zs
 
@@ -70,6 +74,36 @@ subroutine gscg_rwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     call allocate_orbital_real(nspin,mg,info,cg%hwf)
   end if
 
+#ifdef __ve__
+  nx=ubound(cg%xk%rwf,1)-lbound(cg%xk%rwf,1)+1
+  ny=ubound(cg%xk%rwf,2)-lbound(cg%xk%rwf,2)+1
+  ix0=lbound(cg%xk%rwf,1)
+  iy0=lbound(cg%xk%rwf,2)
+  allocate(rwf_wk(nx*ny))
+  do ipos=1,nx*ny
+    iy=(ipos-1)/nx + iy0
+    ix=mod(ipos-1,nx) + ix0
+    if(iy.lt.is(2) .or. iy.gt.ie(2) .or. &
+     & ix.lt.is(1) .or. ix.gt.ie(1)) then
+      rwf_wk(ipos)=.false.
+    else
+      rwf_wk(ipos)=.true.
+    endif
+  end do
+#endif
+
+#ifdef __ve__
+  do io=io_s,io_e
+  do ispin=1,nspin
+  do iz=is(3),ie(3)
+  do ipos=1,nx*ny
+    if(rwf_wk(ipos) .eq. .false.) cycle
+    cg%xk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) = spsi%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1)
+  end do
+  end do
+  end do
+  end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(io,ispin,iz,iy) collapse(4)
 #else
@@ -84,6 +118,7 @@ subroutine gscg_rwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
   end do
   end do
   end do
+#endif
   call timer_end(LOG_GSCG_ISOLATED_CALC)
 
   call timer_begin(LOG_GSCG_ISOLATED_HPSI)
@@ -95,6 +130,20 @@ subroutine gscg_rwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
 
   Iteration : do iter=1,Ncg
 
+#ifdef __ve__
+    do io=io_s,io_e
+    do ispin=1,nspin
+    do iz=is(3),ie(3)
+    do ipos=1,nx*ny
+      if(rwf_wk(ipos) .eq. .false.) cycle
+      cg%gk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) = &
+      & cg%hxk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) &
+      & - xkHxk(ispin,io) * cg%xk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1)
+    end do
+    end do
+    end do
+    end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(io,ispin,iz,iy) collapse(4)
 #else
@@ -111,6 +160,7 @@ subroutine gscg_rwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     end do
     end do
     end do
+#endif
 
 !    call orthogonalization(mg,system,info,spsi,cg%gk)
     call inner_product(mg,system,info,cg%gk,cg%gk,sum)
@@ -134,6 +184,20 @@ subroutine gscg_rwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
       end do
     end if
 
+#ifdef __ve__
+    do io=io_s,io_e
+    do ispin=1,nspin
+    do iz=is(3),ie(3)
+    do ipos=1,nx*ny
+      if(rwf_wk(ipos) .eq. .false.) cycle
+      cg%pk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) = &
+      & cg%gk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) &
+      & + uk(ispin,io) * cg%pk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1)
+    end do
+    end do
+    end do
+    end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(io,ispin,iz,iy) collapse(4)
 #else
@@ -150,10 +214,25 @@ subroutine gscg_rwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     end do
     end do
     end do
+#endif
 
     gkgk = sum
     call inner_product(mg,system,info,cg%xk,cg%pk,zs)
 
+#ifdef __ve__
+    do io=io_s,io_e
+    do ispin=1,nspin
+    do iz=is(3),ie(3)
+    do ipos=1,nx*ny
+      if(rwf_wk(ipos) .eq. .false.) cycle
+      cg%pko%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) = &
+      & cg%pk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) &
+      & - zs(ispin,io) * cg%xk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1)
+    end do
+    end do
+    end do
+    end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(io,ispin,iz,iy) collapse(4)
 #else
@@ -170,9 +249,23 @@ subroutine gscg_rwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     end do
     end do
     end do
+#endif
 
     call inner_product(mg,system,info,cg%pko,cg%pko,sum)
 
+#ifdef __ve__
+    do io=io_s,io_e
+    do ispin=1,nspin
+    do iz=is(3),ie(3)
+    do ipos=1,nx*ny
+      if(rwf_wk(ipos) .eq. .false.) cycle
+      cg%pko%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) = &
+      & cg%pko%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) / sqrt(sum(ispin,io))
+    end do
+    end do
+    end do
+    end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(io,ispin,iz,iy) collapse(4)
 #else
@@ -188,6 +281,7 @@ subroutine gscg_rwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     end do
     end do
     end do
+#endif
     call timer_end(LOG_GSCG_ISOLATED_CALC)
 
     call timer_begin(LOG_GSCG_ISOLATED_HPSI)
@@ -218,6 +312,23 @@ subroutine gscg_rwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     end do
     end do
 
+#ifdef __ve__
+    do io=io_s,io_e
+    do ispin=1,nspin
+    do iz=is(3),ie(3)
+    do ipos=1,nx*ny
+      if(rwf_wk(ipos) .eq. .false.) cycle
+      cg%xk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) = &
+      & cx(ispin,io)* cg%xk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) &
+      & + cp(ispin,io) * cg%pko%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1)
+      cg%hxk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) = &
+      & cx(ispin,io)* cg%hxk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) &
+      & + cp(ispin,io) * cg%hwf%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1)
+    end do
+    end do
+    end do
+    end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(io,ispin,iz,iy) collapse(4)
 #else
@@ -237,6 +348,7 @@ subroutine gscg_rwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     end do
     end do
     end do
+#endif
 
     call inner_product(mg,system,info,cg%xk,cg%hxk,xkHxk)
     call inner_product(mg,system,info,cg%xk,cg%xk,xkxk)
@@ -270,6 +382,21 @@ subroutine gscg_rwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
 
     deallocate(rwf_tmp)
 #else
+#ifdef __ve__
+    do io=io_s,io_e
+    do ispin=1,nspin
+    if(1d-16 < abs(xkxk(ispin,io)) .and. abs(xkxk(ispin,io)) <= 1d30) then
+    do iz=is(3),ie(3)
+    do ipos=1,nx*ny
+      if(rwf_wk(ipos) .eq. .false.) cycle
+        spsi%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) = &
+        & cg%xk%rwf(ipos-1+ix0,iy0,iz,ispin,io,1,1) / sqrt(xkxk(ispin,io))
+    end do
+    end do
+    end if
+    end do
+    end do
+#else
 !$omp parallel do private(io,ispin,iz,iy) collapse(4)
     do io=io_s,io_e
     do ispin=1,nspin
@@ -284,8 +411,12 @@ subroutine gscg_rwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     end do
     end do
 #endif
+#endif
 
   end do Iteration
+#ifdef __ve__
+  deallocate(rwf_wk)
+#endif
   call timer_end(LOG_GSCG_ISOLATED_CALC)
 
   return
@@ -424,6 +555,10 @@ subroutine gscg_zwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
   type(s_cg)                    :: cg
   !
   integer,parameter :: nd=4
+#ifdef __ve__
+  integer :: ipos,ix0,iy0,ix,nx,ny
+  logical,allocatable::zwf_wk(:)
+#endif
   integer :: nspin,ik,io,ispin,ik_s,ik_e,io_s,io_e,is(3),ie(3),iy,iz
   integer :: iter
   complex(8),dimension(system%nspin,system%no,system%nk) :: sum,xkxk,xkHxk,xkHpk,pkHpk,gkgk,uk,ev,cx,cp,zs
@@ -454,6 +589,38 @@ subroutine gscg_zwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     !$acc enter data copyin(cg)
   end if
 
+#ifdef __ve__
+  nx=ubound(cg%xk%zwf,1)-lbound(cg%xk%zwf,1)+1
+  ny=ubound(cg%xk%zwf,2)-lbound(cg%xk%zwf,2)+1
+  ix0=lbound(cg%xk%zwf,1)
+  iy0=lbound(cg%xk%zwf,2)
+  allocate(zwf_wk(nx*ny))
+  do ipos=1,nx*ny
+    iy=(ipos-1)/nx + iy0
+    ix=mod(ipos-1,nx) + ix0
+    if(iy.lt.is(2) .or. iy.gt.ie(2) .or. &
+     & ix.lt.is(1) .or. ix.gt.ie(1)) then
+      zwf_wk(ipos)=.false.
+    else
+      zwf_wk(ipos)=.true.
+    endif
+  end do
+#endif
+
+#ifdef __ve__
+  do ik=ik_s,ik_e
+  do io=io_s,io_e
+  do ispin=1,nspin
+  do iz=is(3),ie(3)
+  do ipos=1,nx*ny
+    if(zwf_wk(ipos) .eq. .false.) cycle
+    cg%xk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) = spsi%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1)
+  end do
+  end do
+  end do
+  end do
+  end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(ik,io,ispin,iz,iy) collapse(5)
 #else
@@ -464,12 +631,19 @@ subroutine gscg_zwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
   do ispin=1,nspin
   do iz=is(3),ie(3)
   do iy=is(2),ie(2)
+#ifdef __ve__
+  do ix=is(1),ie(1)
+    cg%xk%zwf(ix,iy,iz,ispin,io,ik,1) = spsi%zwf(ix,iy,iz,ispin,io,ik,1)
+  end do
+#else
     cg%xk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) = spsi%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1)
+#endif
   end do
   end do
   end do
   end do
   end do
+#endif
   call timer_end(LOG_GSCG_PERIODIC_CALC)
 
   call timer_begin(LOG_GSCG_PERIODIC_HPSI)
@@ -481,6 +655,22 @@ subroutine gscg_zwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
 
   Iteration : do iter=1,Ncg
 
+#ifdef __ve__
+    do ik=ik_s,ik_e
+    do io=io_s,io_e
+    do ispin=1,nspin
+    do iz=is(3),ie(3)
+    do ipos=1,nx*ny
+      if(zwf_wk(ipos) .eq. .false.) cycle
+      cg%gk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) = &
+      & cg%hxk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) &
+      & - xkHxk(ispin,io,ik) * cg%xk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1)
+    end do
+    end do
+    end do
+    end do
+    end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(ik,io,ispin,iz,iy) collapse(5)
 #else
@@ -491,14 +681,23 @@ subroutine gscg_zwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     do ispin=1,nspin
     do iz=is(3),ie(3)
     do iy=is(2),ie(2)
+#ifdef __ve__
+    do ix=is(1),ie(1)
+      cg%gk%zwf(ix,iy,iz,ispin,io,ik,1) = &
+      & cg%hxk%zwf(ix,iy,iz,ispin,io,ik,1) &
+      & - xkHxk(ispin,io,ik) * cg%xk%zwf(ix,iy,iz,ispin,io,ik,1)
+    end do
+#else
       cg%gk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) = &
       & cg%hxk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) &
       & - xkHxk(ispin,io,ik) * cg%xk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1)
+#endif
     end do
     end do
     end do
     end do
     end do
+#endif
 
 !    call orthogonalization(mg,system,info,spsi,cg%gk)
     call inner_product(mg,system,info,cg%gk,cg%gk,sum)
@@ -524,6 +723,22 @@ subroutine gscg_zwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
       end do
     end if
 
+#ifdef __ve__
+    do ik=ik_s,ik_e
+    do io=io_s,io_e
+    do ispin=1,nspin
+    do iz=is(3),ie(3)
+    do ipos=1,nx*ny
+      if(zwf_wk(ipos) .eq. .false.) cycle
+      cg%pk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) = &
+      & cg%gk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) &
+      & + uk(ispin,io,ik) * cg%pk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1)
+    end do
+    end do
+    end do
+    end do
+    end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(ik,io,ispin,iz,iy) collapse(5)
 #else
@@ -534,18 +749,43 @@ subroutine gscg_zwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     do ispin=1,nspin
     do iz=is(3),ie(3)
     do iy=is(2),ie(2)
+#ifdef __ve__
+    do ix=is(1),ie(1)
+      cg%pk%zwf(ix,iy,iz,ispin,io,ik,1) = &
+      & cg%gk%zwf(ix,iy,iz,ispin,io,ik,1) &
+      & + uk(ispin,io,ik) * cg%pk%zwf(ix,iy,iz,ispin,io,ik,1)
+    end do
+#else
       cg%pk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) = &
       & cg%gk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) &
       & + uk(ispin,io,ik) * cg%pk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1)
+#endif
     end do
     end do
     end do
     end do
     end do
+#endif
 
     gkgk = sum
     call inner_product(mg,system,info,cg%xk,cg%pk,zs)
 
+#ifdef __ve__
+    do ik=ik_s,ik_e
+    do io=io_s,io_e
+    do ispin=1,nspin
+    do iz=is(3),ie(3)
+    do ipos=1,nx*ny
+      if(zwf_wk(ipos) .eq. .false.) cycle
+      cg%pko%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) = &
+      & cg%pk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) &
+      & - zs(ispin,io,ik) *cg%xk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1)
+    end do
+    end do
+    end do
+    end do
+    end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(ik,io,ispin,iz,iy) collapse(5)
 #else
@@ -556,17 +796,41 @@ subroutine gscg_zwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     do ispin=1,nspin
     do iz=is(3),ie(3)
     do iy=is(2),ie(2)
+#ifdef __ve__
+    do ix=is(1),ie(1)
+      cg%pko%zwf(ix,iy,iz,ispin,io,ik,1) = &
+      & cg%pk%zwf(ix,iy,iz,ispin,io,ik,1) &
+      & - zs(ispin,io,ik) *cg%xk%zwf(ix,iy,iz,ispin,io,ik,1)
+    end do
+#else
       cg%pko%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) = &
       & cg%pk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) &
       & - zs(ispin,io,ik) *cg%xk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1)
+#endif
     end do
     end do
     end do
     end do
     end do
+#endif
 
     call inner_product(mg,system,info,cg%pko,cg%pko,sum)
 
+#ifdef __ve__
+    do ik=ik_s,ik_e
+    do io=io_s,io_e
+    do ispin=1,nspin
+    do iz=is(3),ie(3)
+    do ipos=1,nx*ny
+      if(zwf_wk(ipos) .eq. .false.) cycle
+      cg%pko%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) = &
+      & cg%pko%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) / sqrt(sum(ispin,io,ik))
+    end do
+    end do
+    end do
+    end do
+    end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(ik,io,ispin,iz,iy) collapse(5)
 #else
@@ -577,13 +841,21 @@ subroutine gscg_zwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     do ispin=1,nspin
     do iz=is(3),ie(3)
     do iy=is(2),ie(2)
+#ifdef __ve__
+    do ix=is(1),ie(1)
+      cg%pko%zwf(ix,iy,iz,ispin,io,ik,1) = &
+      & cg%pko%zwf(ix,iy,iz,ispin,io,ik,1) / sqrt(sum(ispin,io,ik))
+    end do
+#else
       cg%pko%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) = &
       & cg%pko%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) / sqrt(sum(ispin,io,ik))
+#endif
     end do
     end do
     end do
     end do
     end do
+#endif
     call timer_end(LOG_GSCG_PERIODIC_CALC)
 
     call timer_begin(LOG_GSCG_PERIODIC_HPSI)
@@ -616,6 +888,25 @@ subroutine gscg_zwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     end do
     end do
 
+#ifdef __ve__
+    do ik=ik_s,ik_e
+    do io=io_s,io_e
+    do ispin=1,nspin
+    do iz=is(3),ie(3)
+    do ipos=1,nx*ny
+      if(zwf_wk(ipos) .eq. .false.) cycle
+      cg%xk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) = &
+      & cx(ispin,io,ik) * cg%xk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) &
+      & + cp(ispin,io,ik) * cg%pko%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1)
+      cg%hxk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) = &
+      & cx(ispin,io,ik) * cg%hxk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) &
+      & + cp(ispin,io,ik) * cg%hwf%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1)
+    end do
+    end do
+    end do
+    end do
+    end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(ik,io,ispin,iz,iy) collapse(5)
 #else
@@ -626,21 +917,50 @@ subroutine gscg_zwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     do ispin=1,nspin
     do iz=is(3),ie(3)
     do iy=is(2),ie(2)
+#ifdef __ve__
+    do ix=is(1),ie(1)
+      cg%xk%zwf(ix,iy,iz,ispin,io,ik,1) = &
+      & cx(ispin,io,ik) * cg%xk%zwf(ix,iy,iz,ispin,io,ik,1) &
+      & + cp(ispin,io,ik) * cg%pko%zwf(ix,iy,iz,ispin,io,ik,1)
+      cg%hxk%zwf(ix,iy,iz,ispin,io,ik,1) = &
+      & cx(ispin,io,ik) * cg%hxk%zwf(ix,iy,iz,ispin,io,ik,1) &
+      & + cp(ispin,io,ik) * cg%hwf%zwf(ix,iy,iz,ispin,io,ik,1)
+    end do
+#else
       cg%xk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) = &
       & cx(ispin,io,ik) * cg%xk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) &
       & + cp(ispin,io,ik) * cg%pko%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1)
       cg%hxk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) = &
       & cx(ispin,io,ik) * cg%hxk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) &
       & + cp(ispin,io,ik) * cg%hwf%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1)
+#endif
     end do
     end do
     end do
     end do
     end do
+#endif
 
     call inner_product(mg,system,info,cg%xk,cg%hxk,xkHxk)
     call inner_product(mg,system,info,cg%xk,cg%xk,xkxk)
 
+#ifdef __ve__
+    do ik=ik_s,ik_e
+    do io=io_s,io_e
+    do ispin=1,nspin
+    if(1d-16 < abs(xkxk(ispin,io,ik)) .and. abs(xkxk(ispin,io,ik)) <= 1d30) then
+    do iz=is(3),ie(3)
+    do ipos=1,nx*ny
+      if(zwf_wk(ipos) .eq. .false.) cycle
+      spsi%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) = &
+      & cg%xk%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1) / sqrt(xkxk(ispin,io,ik))
+    end do
+    end do
+    end if
+    end do
+    end do
+    end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(ik,io,ispin,iz,iy) collapse(5)
 #else
@@ -652,16 +972,27 @@ subroutine gscg_zwf(ncg,mg,system,info,stencil,ppg,vlocal,srg,spsi,cg)
     do iz=is(3),ie(3)
     do iy=is(2),ie(2)
       if(1d-16 < abs(xkxk(ispin,io,ik)) .and. abs(xkxk(ispin,io,ik)) <= 1d30) then
+#ifdef __ve__
+        do ix=is(1),ie(1)
+          spsi%zwf(ix,iy,iz,ispin,io,ik,1) = &
+          & cg%xk%zwf(ix,iy,iz,ispin,io,ik,1) / sqrt(xkxk(ispin,io,ik))
+        end do
+#else
         spsi%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) = &
         & cg%xk%zwf(is(1):ie(1),iy,iz,ispin,io,ik,1) / sqrt(xkxk(ispin,io,ik))
+#endif
       end if
     end do
     end do
     end do
     end do
     end do
+#endif
 
   end do Iteration
+#ifdef __ve__
+  deallocate(zwf_wk)
+#endif
   call timer_end(LOG_GSCG_PERIODIC_CALC)
 
   return
@@ -752,9 +1083,45 @@ subroutine inner_product(mg,system,info,psi1,psi2,zbox)
   integer :: ix,iy,iz
   complex(8) :: zbox2(system%nspin,system%no,system%nk)
   complex(8) :: sum0
+#ifdef __ve__
+  integer :: ipos,ix0,iy0,nx,ny
+  logical,allocatable::zwf_wk(:)
+
+  nx=ubound(cg%xk%zwf,1)-lbound(cg%xk%zwf,1)+1
+  ny=ubound(cg%xk%zwf,2)-lbound(cg%xk%zwf,2)+1
+  ix0=lbound(cg%xk%zwf,1)
+  iy0=lbound(cg%xk%zwf,2)
+  allocate(zwf_wk(nx*ny))
+  do ipos=1,nx*ny
+    iy=(ipos-1)/nx + iy0
+    ix=mod(ipos-1,nx) + ix0
+    if(iy.lt.is(2) .or. iy.gt.ie(2) .or. &
+     & ix.lt.is(1) .or. ix.gt.ie(1)) then
+      zwf_wk(ipos)=.false.
+    else
+      zwf_wk(ipos)=.true.
+    endif
+  end do
+#endif
   nspin = system%nspin
 
   zbox2(:,:,:) = 0.d0
+#ifdef __ve__
+  do ik=info%ik_s,info%ik_e
+  do io=info%io_s,info%io_e
+  do ispin=1,nspin
+    sum0 = 0d0
+    do iz=mg%is(3),mg%ie(3)
+    do ipos=1,nx*ny
+      if(zwf_wk(ipos) .eq. .false.) cycle
+      sum0 = sum0 + conjg(psi1%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1))*psi2%zwf(ipos-1+ix0,iy0,iz,ispin,io,ik,1)
+    end do
+    end do
+    zbox2(ispin,io,ik) = sum0 * system%hvol
+  end do
+  end do
+  end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop collapse(2) private(ik,io,ispin,sum0,iz,iy,ix)
 #else
@@ -775,6 +1142,11 @@ subroutine inner_product(mg,system,info,psi1,psi2,zbox)
   end do
   end do
   end do
+#endif
+
+#ifdef __ve__
+  deallocate(zwf_wk)
+#endif
   call timer_end(LOG_GSCG_PERIODIC_CALC)
 
   call timer_begin(LOG_GSCG_PERIODIC_COMM_COLL)

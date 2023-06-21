@@ -225,6 +225,15 @@ subroutine broyden(alpha_mb,vecr,vecr_in,vecr_out,nl,iter,iter_mod,nstock,icomm,
       call comm_summation(ss_tmp1,ss_tmp2,iter_e-iter_s+1,icomm)
 
       vecr_tmp(1:nl)=0.d0
+#ifdef __ve__
+      do j=iter_s,iter_e
+      do i=iter_s,iter_e
+        do k=1,nl
+          vecr_tmp(k) = vecr_tmp(k) + omega_mb(i) * omega_mb(j) * beta(i,j) * ss_tmp2(i) * (amix * del_vecf(k,j) + del_vecx(k,j))
+        end do
+      end do
+      end do
+#else
 #ifdef USE_OPENACC
 !$acc parallel loop private(k,i,j,ss)
 #else
@@ -239,6 +248,7 @@ subroutine broyden(alpha_mb,vecr,vecr_in,vecr_out,nl,iter,iter_mod,nstock,icomm,
         end do
         vecr_tmp(k) = ss
       end do
+#endif
     else 
       vecr_tmp(1:nl)=0.d0
       do i=iter_s,iter_e

@@ -16,7 +16,9 @@
 
 #ifdef __FUJITSU
 #else
+#ifndef __ve__
 #define LOOP_BLOCKING
+#endif
 #endif
 
 subroutine zstencil_typical_omp(is_array,ie_array,is,ie,idx,idy,idz &
@@ -76,11 +78,81 @@ subroutine zstencil_typical_omp(is_array,ie_array,is,ie,idx,idy,idz &
   do iz=bz,bz_e
   do iy=by,by_e
 #else
+#ifndef __ve__
 !$omp parallel do collapse(2) private(ix,iy,iz,v,w,t)
   do iz=is(3),ie(3)
   do iy=is(2),ie(2)
 #endif
+#endif
 
+#ifdef __ve__
+  do iz=is(3),ie(3)
+  do iy=is(2),ie(2)
+  do ix=is(1),ie(1)
+    t(1) = tpsi(DX( 4))
+    t(2) = tpsi(DX( 3))
+    t(3) = tpsi(DX( 2))
+    t(4) = tpsi(DX( 1))
+    t(5) = tpsi(DX(-1))
+    t(6) = tpsi(DX(-2))
+    t(7) = tpsi(DX(-3))
+    t(8) = tpsi(DX(-4))
+
+    v=(lapt(1)*(t(4)+t(5)) &
+    & +lapt(2)*(t(3)+t(6)) &
+    & +lapt(3)*(t(2)+t(7)) &
+    & +lapt(4)*(t(1)+t(8)))
+    w=(nabt(1)*(t(4)-t(5)) &
+    & +nabt(2)*(t(3)-t(6)) &
+    & +nabt(3)*(t(2)-t(7)) &
+    & +nabt(4)*(t(1)-t(8)))
+
+    t(1) = tpsi(DY( 1))
+    t(2) = tpsi(DY( 2))
+    t(3) = tpsi(DY( 3))
+    t(4) = tpsi(DY( 4))
+    t(5) = tpsi(DY(-1))
+    t(6) = tpsi(DY(-2))
+    t(7) = tpsi(DY(-3))
+    t(8) = tpsi(DY(-4))
+
+    v=(lapt(5)*(t(1)+t(5)) &
+    & +lapt(6)*(t(2)+t(6)) &
+    & +lapt(7)*(t(3)+t(7)) &
+    & +lapt(8)*(t(4)+t(8))) + v
+    w=(nabt(5)*(t(1)-t(5)) &
+    & +nabt(6)*(t(2)-t(6)) &
+    & +nabt(7)*(t(3)-t(7)) &
+    & +nabt(8)*(t(4)-t(8))) + w
+
+    htpsi(ix,iy,iz) = V_local(ix,iy,iz)*tpsi(ix,iy,iz) &
+                    + lap0*tpsi(ix,iy,iz) &
+                    - 0.5d0 * v - zI * w
+
+    t(1) = tpsi(DZ( 1))
+    t(2) = tpsi(DZ( 2))
+    t(3) = tpsi(DZ( 3))
+    t(4) = tpsi(DZ( 4))
+    t(5) = tpsi(DZ(-1))
+    t(6) = tpsi(DZ(-2))
+    t(7) = tpsi(DZ(-3))
+    t(8) = tpsi(DZ(-4))
+
+    v=(lapt( 9)*(t(1)+t(5)) &
+    & +lapt(10)*(t(2)+t(6)) &
+    & +lapt(11)*(t(3)+t(7)) &
+    & +lapt(12)*(t(4)+t(8)))
+    w=(nabt( 9)*(t(1)-t(5)) &
+    & +nabt(10)*(t(2)-t(6)) &
+    & +nabt(11)*(t(3)-t(7)) &
+    & +nabt(12)*(t(4)-t(8)))
+
+    htpsi(ix,iy,iz) = htpsi(ix,iy,iz) &
+                    - 0.5d0 * v - zI * w
+  end do
+  end do
+  end do
+#else
 !dir$ assume_aligned V_local(is(1),iy,iz)     :MEM_ALIGN
 !dir$ assume_aligned tpsi(is_array(1),iy,iz)  :MEM_ALIGN
 !dir$ assume_aligned htpsi(is_array(1),iy,iz) :MEM_ALIGN
@@ -156,6 +228,7 @@ subroutine zstencil_typical_omp(is_array,ie_array,is,ie,idx,idy,idz &
   end do
   end do
   end do
+#endif
 
 #ifdef LOOP_BLOCKING
   end do

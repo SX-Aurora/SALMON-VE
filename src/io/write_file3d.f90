@@ -95,6 +95,7 @@ end subroutine write_avs
 !======================================================================
 
 subroutine write_cube(lg,fp,suffix,phys_quantity,rmat,system)
+  use vhcall_fortran
   use salmon_global, only: natom,kion,izatom,yn_jm
   use structures, only: s_rgrid, s_dft_system
   use parallelization, only: nproc_id_global
@@ -107,6 +108,45 @@ subroutine write_cube(lg,fp,suffix,phys_quantity,rmat,system)
   character(30)     ,intent(in) :: phys_quantity
   real(8)           ,intent(in) :: rmat(lg%is(1):lg%ie(1),lg%is(2):lg%ie(2),lg%is(3):lg%ie(3))
   !
+#ifdef __ve__
+  integer    :: ncomm_is_root
+  integer(8) :: handle
+  integer(8) :: sym
+  integer(8) :: ca
+  integer    :: ir
+
+  if( comm_is_root(nproc_id_global) )then
+    ncomm_is_root = 1
+  else
+    ncomm_is_root = 0
+  endif
+
+  handle = fvhcall_install('./libvhcall.so')
+  sym    = fvhcall_find(handle,'write_cube')
+  ca     = fvhcall_args_alloc()
+
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in, 1, lg%is)
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in, 2, lg%ie)
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in, 3, lg%num)
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in, 4, lg%coordinate(lg%is(1),1))
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in, 5, lg%coordinate(lg%is(2),2))
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in, 6, lg%coordinate(lg%is(3),3))
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in, 7, fp)
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in, 8, suffix)
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in, 9, phys_quantity)
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in,10, rmat)
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in,11, system%primitive_a)
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in,12, system%Rion)
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in,13, ncomm_is_root)
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in,14, yn_jm)
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in,15, natom)
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in,16, kion)
+  ir     = fvhcall_args_set(ca, fvhcall_intent_in,17, izatom)
+  ir     = fvhcall_invoke_with_args(sym, ca)
+
+  CALL fvhcall_args_free(ca)
+  ir = fvhcall_uninstall(handle)
+#else
   character(60):: filename
   integer :: j,iatom
   integer :: ix,iy,iz
@@ -166,6 +206,7 @@ subroutine write_cube(lg,fp,suffix,phys_quantity,rmat,system)
     end do
     close(fp)
   end if
+#endif
 
 end subroutine write_cube
 

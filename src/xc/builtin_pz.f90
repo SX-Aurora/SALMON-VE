@@ -32,6 +32,16 @@ contains
     ! rho_s=rho*0.5d0
     ! if(flag_nlcc)rho_s = rho_s + 0.5d0*rho_nlcc
     
+#ifdef __ve__
+    do i=1,NL
+      trho=2*rho_s(i)
+!$NEC inline
+      call PZxc(trho,e_xc,de_xc_drho)
+      exc(i)=e_xc
+      Eexc(i)=e_xc*trho
+      Vexc(i)=e_xc+trho*de_xc_drho
+    enddo
+#else
 #ifdef USE_OPENACC
 !$acc kernels loop private(i,trho,e_xc,de_xc_drho)
 #else
@@ -46,6 +56,7 @@ contains
     enddo
 #ifdef USE_OPENACC
 !$acc end kernels
+#endif
 #endif
     return
   end subroutine exc_cor_pz

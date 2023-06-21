@@ -261,7 +261,10 @@ end subroutine laplacian_poisson
 subroutine poisson_boundary(lg,mg,info,system,poisson,trho,wk2)
   use inputoutput, only: natom,lmax_multipole,layout_multipole,natom
   use structures, only: s_rgrid,s_parallel_info,s_dft_system,s_poisson
-  use salmon_math, only: ylm
+  use salmon_math, only: ylm, ylm01, ylm02, ylm03, ylm04, ylm05, ylm06, ylm07, &
+                              ylm08, ylm09, ylm10, ylm11, ylm12, ylm13, ylm14, &
+                              ylm15, ylm16, ylm17, ylm18, ylm19, ylm20, ylm21, &
+                              ylm22, ylm23, ylm24, ylm25
   use communication, only: comm_summation
   use parallelization, only: get_nthreads, get_thread_id
 
@@ -290,6 +293,9 @@ subroutine poisson_boundary(lg,mg,info,system,poisson,trho,wk2)
   integer,allocatable :: itrho(:)
   integer :: num_center
   real(8) :: ylm2(25)
+#ifdef __ve__
+  real(8) :: ylmtmp
+#endif
   integer :: l2(25)
   real(8) :: xx,yy,zz,rr,sum1,xxxx,yyyy,zzzz,rrrr
   real(8),allocatable :: rholm(:,:),rholm2(:,:) !,rholm3(:,:)
@@ -299,7 +305,7 @@ subroutine poisson_boundary(lg,mg,info,system,poisson,trho,wk2)
   real(8),allocatable :: center_trho_nume_deno(:,:)
   real(8),allocatable :: center_trho_nume_deno2(:,:)
   real(8) :: xp2,yp2,zp2,xy,yz,xz
-  real(8) :: deno(25)
+  real(8) :: deno(25),denotmp
   real(8) :: rinv, rbox, hvol
   real(8),allocatable :: Rion2(:,:)
   integer,allocatable :: ig_num(:)
@@ -470,9 +476,13 @@ subroutine poisson_boundary(lg,mg,info,system,poisson,trho,wk2)
 
   do ii=1,poisson%npole_partial
     reduce_work4=0d0
+#ifndef __ve__
 !$omp parallel private(jj,ixbox,iybox,izbox,xx,yy,zz,tid)
+#endif
     tid=get_thread_id()
+#ifndef __ve__
 !$omp do
+#endif
     do jj=1,ig_num(ii)
       ixbox=ig(1,jj,ii)
       iybox=ig(2,jj,ii)
@@ -480,14 +490,18 @@ subroutine poisson_boundary(lg,mg,info,system,poisson,trho,wk2)
       xx=coordinate(ixbox,1)
       yy=coordinate(iybox,2)
       zz=coordinate(izbox,3)
+#ifndef __ve__
       tid=get_thread_id()
+#endif
       reduce_work4(1,tid)=reduce_work4(1,tid)+trho(ixbox,iybox,izbox)*xx
       reduce_work4(2,tid)=reduce_work4(2,tid)+trho(ixbox,iybox,izbox)*yy
       reduce_work4(3,tid)=reduce_work4(3,tid)+trho(ixbox,iybox,izbox)*zz
       reduce_work4(4,tid)=reduce_work4(4,tid)+trho(ixbox,iybox,izbox)
     end do
+#ifndef __ve__
 !$omp end do
 !$omp end parallel
+#endif
     center_trho_nume_deno2(1,poisson%ipole_tbl(ii))=sum(reduce_work4(1,:))
     center_trho_nume_deno2(2,poisson%ipole_tbl(ii))=sum(reduce_work4(2,:))
     center_trho_nume_deno2(3,poisson%ipole_tbl(ii))=sum(reduce_work4(3,:))
@@ -571,6 +585,7 @@ subroutine poisson_boundary(lg,mg,info,system,poisson,trho,wk2)
         do m=-ll,ll
           lm=ll*ll+ll+1+m
           reduce_work=0d0
+#ifndef __ve__
 !$omp parallel private(jj,ixbox,iybox,izbox,xx,yy,zz,rr,xxxx,yyyy,zzzz,tid)
           tid=get_thread_id()
 !$omp do
@@ -586,6 +601,310 @@ subroutine poisson_boundary(lg,mg,info,system,poisson,trho,wk2)
           end do
 !$omp end do
 !$omp end parallel
+#else
+          tid=get_thread_id()
+          if(lm.eq.1)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm01(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.2)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm02(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.3)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm03(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.4)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm04(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.5)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm05(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.6)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm06(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.7)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm07(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.8)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm08(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.9)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm09(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.10)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm10(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.11)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm11(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.12)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm12(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.13)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm13(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.14)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm14(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.15)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm15(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.16)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm16(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.17)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm17(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.18)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm18(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.19)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm19(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.20)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm20(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.21)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm21(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.22)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm22(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.23)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm23(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.24)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm24(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          else if(lm.eq.25)then
+            do jj=1,ig_num(ii)
+              ixbox=ig(1,jj,ii)
+              iybox=ig(2,jj,ii)
+              izbox=ig(3,jj,ii)
+              xx=coordinate(ixbox,1)-center_trho(1,poisson%ipole_tbl(ii))
+              yy=coordinate(iybox,2)-center_trho(2,poisson%ipole_tbl(ii))
+              zz=coordinate(izbox,3)-center_trho(3,poisson%ipole_tbl(ii))
+              rr=sqrt(xx*xx+yy*yy+zz*zz)+1.d-50 ; xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+!$NEC inline
+              reduce_work(tid)=reduce_work(tid)+rr**ll*ylm25(xxxx,yyyy,zzzz)*trho(ixbox,iybox,izbox)*hvol
+            end do
+          endif
+#endif
           rholm2(lm,poisson%ipole_tbl(ii))=sum(reduce_work)
         end do
         end do
@@ -637,6 +956,7 @@ subroutine poisson_boundary(lg,mg,info,system,poisson,trho,wk2)
       end do
     end do
 
+#ifndef __ve__
   !$OMP parallel do &
   !$OMP private(xx,yy,zz,rr,xxxx,yyyy,zzzz,lm,ll,sum1,ylm2,rrrr,xp2,yp2,zp2,xy,yz,xz,rinv,rbox,deno,icen)
     do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
@@ -704,6 +1024,710 @@ subroutine poisson_boundary(lg,mg,info,system,poisson,trho,wk2)
         end if
       end do
     end do
+#else
+    do icen=1,num_center
+      if(itrho(icen)==1)then
+        do lm=1,(lmax_multipole+1)**2
+          if(lm==1)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=1.d0
+
+              denotmp=rinv
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==2)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=yy
+
+              rbox=rinv*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==3)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=zz
+
+              rbox=rinv*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==4)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=xx
+
+              rbox=rinv*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==5)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=sqrt(3.d0)*xy                      ! lm=5  (2 -2)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==6)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=sqrt(3.d0)*yz                      ! lm=6  (2 -1)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==7)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=(2*zp2-xp2-yp2)/2.d0               ! lm=7  (2 0)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==8)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=sqrt(3.d0)*xz                      ! lm=8  (2 1)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==9)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=sqrt(3.d0/4.d0)*(xp2-yp2)          ! lm=9  (2 2)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==10)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=sqrt(5.d0/8.d0)*yy*(3*xp2-yp2)    ! lm=10 (3 -3)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==11)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=sqrt(15.d0)*xx*yy*zz               ! lm=11 (3 -2)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==12)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=sqrt(3.d0/8.d0)*yy*(4*zp2-xp2-yp2)  ! lm=12 (3 -1)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==13)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=zz*(2*zp2-3*xp2-3*yp2)/2.d0         ! lm=13 (3 0)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==14)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=sqrt(3.d0/8.d0)*xx*(4*zp2-xp2-yp2)  ! lm=14 (3 1)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==15)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=sqrt(15.d0/4.d0)*zz*(xp2-yp2)       ! lm=15 (3 2)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==16)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=sqrt(5.d0/8.d0)*xx*(xp2-3*yp2)      ! lm=16 (3 3)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==17)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=rrrr*sqrt(35.d0)/2.d0*xy*(xp2-yp2)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==18)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=rrrr*sqrt(35.d0/8.d0)*yz*(3*xp2-yp2)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==19)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=rrrr*sqrt(5.d0)/2.d0*xy*(7*zp2-1.d0)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==20)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=rrrr*sqrt(5.d0/8.d0)*yz*(7*zp2-3.d0)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==21)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=rrrr*(35*zp2**2-30*zp2+3.d0)/8.d0
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==22)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=rrrr*sqrt(5.d0/8.d0)*xz*(7*zp2-3.d0)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==23)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=rrrr*sqrt(5.d0)/4.d0*(7*zp2-1)*(xp2-yp2)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==24)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=rrrr*sqrt(35.d0/8.d0)*xz*(xp2-3*yp2)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          else if(lm==25)then
+            do jj=istart(myrank_xyz(k)),iend(myrank_xyz(k))
+              xx=coordinate(poisson%ig_bound(1,jj,k),1)-center_trho(1,icen)
+              yy=coordinate(poisson%ig_bound(2,jj,k),2)-center_trho(2,icen)
+              zz=coordinate(poisson%ig_bound(3,jj,k),3)-center_trho(3,icen)
+              rr=sqrt(xx**2+yy**2+zz**2)+1.d-50
+              rinv=1.d0/rr
+      !        xxxx=xx/rr ; yyyy=yy/rr ; zzzz=zz/rr
+              xx=xx*rinv ; yy=yy*rinv ; zz=zz*rinv
+
+              xp2=xx**2
+              yp2=yy**2
+              zp2=zz**2
+              xy=xx*yy
+              yz=yy*zz
+              xz=xx*zz
+
+              rrrr=(xp2+yp2+zp2)**2
+
+              ylmtmp=rrrr*sqrt(35.d0)/8.d0*(xp2**2+yp2**2-6*xp2*yp2)
+
+              rbox=rinv*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              rbox=rbox*rinv
+              denotmp=rbox
+
+              poisson%wkbound2(jj) = poisson%wkbound2(jj) + ylmtmp*denotmp*rholm(lm,icen)
+            end do
+          end if
+        end do
+      end if
+    end do
+#endif
 
     if(info%isize_r==1)then
   !$OMP parallel do

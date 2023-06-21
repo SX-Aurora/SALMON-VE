@@ -38,6 +38,23 @@ subroutine taylor(mg,system,info,stencil,srg,tspsi_in,tspsi_out,sshtpsi,   &
   type(s_rt),     intent(in) :: rt
   integer :: nn,ix,iy,iz
   integer :: ik,io,is,nspin
+#ifdef __ve__
+  integer :: xs, xe, xl, ys, ye, yl, ll
+  integer, allocatable :: mask(:,:)
+  xs = lbound(tspsi_out%zwf,1)
+  xe = ubound(tspsi_out%zwf,1)
+  xl = xe - xs + 1
+  ys = lbound(tspsi_out%zwf,2)
+  ye = ubound(tspsi_out%zwf,2)
+  yl = ye - ys + 1
+  allocate(mask(xs:xe,ys:ye))
+  mask = 1
+  do iy=mg%is(2),mg%ie(2)
+  do ix=mg%is(1),mg%ie(1)
+  mask(ix,iy) = 0
+  end do
+  end do
+#endif
   nspin = system%nspin
 
   do nn=1,n_hamil
@@ -57,6 +74,7 @@ subroutine taylor(mg,system,info,stencil,srg,tspsi_in,tspsi_out,sshtpsi,   &
 #endif
           do is=1,nspin
             do iz=mg%is(3),mg%ie(3)
+#ifndef __ve__
 #ifdef USE_OPENACC
 !$acc loop collapse(2) private(ik,io,is,iz,iy,ix) vector
 #endif
@@ -66,6 +84,13 @@ subroutine taylor(mg,system,info,stencil,srg,tspsi_in,tspsi_out,sshtpsi,   &
                                                    rt%zc(nn)*sshtpsi%zwf(ix,iy,iz,is,io,ik,1)
             end do
             end do
+#else
+            do ll=1,xl*yl
+              if(mask(xs+ll-1,ys) == 1) cycle
+              tspsi_out%zwf(xs+ll-1,ys,iz,is,io,ik,1)=tspsi_in%zwf(xs+ll-1,ys,iz,is,io,ik,1)+ &
+                                                   rt%zc(nn)*sshtpsi%zwf(xs+ll-1,ys,iz,is,io,ik,1)
+            end do
+#endif
             end do
           end do
         end do
@@ -83,12 +108,20 @@ subroutine taylor(mg,system,info,stencil,srg,tspsi_in,tspsi_out,sshtpsi,   &
         do io=info%io_s,info%io_e
           do is=1,nspin
             do iz=mg%is(3),mg%ie(3)
+#ifndef __ve__
             do iy=mg%is(2),mg%ie(2)
             do ix=mg%is(1),mg%ie(1)
               tspsi_out%zwf(ix,iy,iz,is,io,ik,1)=tspsi_out%zwf(ix,iy,iz,is,io,ik,1)+ &
                                                    rt%zc(nn)*sshtpsi%zwf(ix,iy,iz,is,io,ik,1)
             end do
             end do
+#else
+            do ll=1,xl*yl
+              if(mask(xs+ll-1,ys) == 1) cycle
+              tspsi_out%zwf(xs+ll-1,ys,iz,is,io,ik,1)=tspsi_out%zwf(xs+ll-1,ys,iz,is,io,ik,1)+ &
+                                                   rt%zc(nn)*sshtpsi%zwf(xs+ll-1,ys,iz,is,io,ik,1)
+            end do
+#endif
             end do
           end do
         end do
@@ -108,12 +141,20 @@ subroutine taylor(mg,system,info,stencil,srg,tspsi_in,tspsi_out,sshtpsi,   &
       do io=info%io_s,info%io_e
         do is=1,nspin
           do iz=mg%is(3),mg%ie(3)
+#ifndef __ve__
           do iy=mg%is(2),mg%ie(2)
           do ix=mg%is(1),mg%ie(1)
             tspsi_out%zwf(ix,iy,iz,is,io,ik,1)=tspsi_out%zwf(ix,iy,iz,is,io,ik,1)+ &
                                                rt%zc(nn)*tspsi_in%zwf(ix,iy,iz,is,io,ik,1)
           end do
           end do
+#else
+          do ll=1,xl*yl
+            if(mask(xs+ll-1,ys) == 1) cycle
+            tspsi_out%zwf(xs+ll-1,ys,iz,is,io,ik,1)=tspsi_out%zwf(xs+ll-1,ys,iz,is,io,ik,1)+ &
+                                               rt%zc(nn)*tspsi_in%zwf(xs+ll-1,ys,iz,is,io,ik,1)
+          end do
+#endif
           end do
         end do
       end do

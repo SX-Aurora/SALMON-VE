@@ -1,0 +1,42 @@
+#FTRACE = -ftrace
+TARGET = salmon
+FC = mpinfort ${FTRACE}
+CC = mpincc ${FTRACE}
+#INLINE=-finline-functions -finline-max-depth=4 -finline-max-function-size=500 -finline-directory=../src/so/:../src/poisson/ \
+#       -finline-file=${dir}/src/math/salmon_math.f90
+INLINE=-finline-file=../src/math/salmon_math.f90
+#FFLAGS = -O3 -report-all -fpp -fopenmp -traceback=verbose ${INLINE}
+#FFLAGS = -O3 -report-all -fpp -traceback=verbose ${INLINE}
+#FFLAGS = -O3 -report-all -fpp -traceback=verbose
+#FFLAGS = -O3 -report-all -fpp
+#FFLAGS = -O3 -report-all -fpp ${INLINE} -mno-vector-fma
+FFLAGS = -O3 -report-all -fpp ${INLINE}
+
+#CFLAGS = -O3 -fopenmp
+CFLAGS = -O3
+#LFLAGS = ${FFLAGS}
+LFLAGS = ${FFLAGS} -fopenmp
+LIBLAPACK = -L/opt/nec/ve/nlc/2.3.0/lib -lscalapack -llapack -lblas_sequential -lasl_sequential -static
+MODULE_SWITCH = -module
+MPIFLAG = -DUSE_MPI
+
+LIBXC_LIB =
+LIBXC_INC =
+
+VHCALL_LIB = -lvhcall_fortran
+
+CONFIG = \
+    -DSYSTEM_HAS_POSIX \
+    -DSYSTEM_HAS_POSIX_STAT \
+    -DSYSTEM_HAS_POSIX_ACCESS \
+    -DSYSTEM_HAS_POSIX_MKDIR \
+    -DSYSTEM_HAS_STDIO_REMOVE \
+    -DSYSTEM_HAS_POSIX_NFTW \
+    -DSYSTEM_HAS_PATH_MAX_IN_LIMITS_H \
+    -DSYSTEM_HAS_PATH_MAX_IN_LINUX_LIMITS_H
+
+ifneq (,$(wildcard make.body))
+include make.body
+else 
+include gnu_makefiles/make.body
+endif

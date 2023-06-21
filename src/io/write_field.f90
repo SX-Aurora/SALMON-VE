@@ -124,7 +124,7 @@ contains
     wrk1 = 0.d0
     !$omp end workshare
     do ispin=1,system%nspin
-      !$OMP parallel do collapse(2) private(iz,iy,ix)
+      !!$OMP parallel do collapse(2) private(iz,iy,ix)
       do iz=mg%is(3),mg%ie(3)
       do iy=mg%is(2),mg%ie(2)
       do ix=mg%is(1),mg%ie(1)

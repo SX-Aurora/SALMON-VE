@@ -62,6 +62,10 @@ F90_SRCS = \
 ./symmetry/symmetry_rho.f90 \
 ./symmetry/symmetry_vector.f90 \
 ./atom/pp/read_ps_upf_module.f90 \
+./paw/paw_variables.f90 \
+./paw/radial_1d.f90 \
+./xc/builtin_pz.f90 \
+./atom/pp/read_paw_upf_module.f90 \
 ./atom/pp/input_pp.f90 \
 ./atom/pp/salmon_pp.f90 \
 ./poisson/init_poisson.f90 \
@@ -71,10 +75,10 @@ F90_SRCS = \
 ./maxwell/common_maxwell.f90 \
 ./atom/jellium.f90 \
 ./maxwell/fdtd_weyl_gauge.f90 \
-./xc/builtin_pz.f90 \
 ./xc/builtin_pz_sp.f90 \
 ./xc/builtin_pzm.f90 \
 ./xc/builtin_tbmbj.f90 \
+./so/noncollinear_module.f90 \
 ./xc/salmon_xc.f90 \
 ./plusu/calc_jxyz_plusu.f90 \
 ./plusu/calc_nps_plusu.f90 \
@@ -84,7 +88,6 @@ F90_SRCS = \
 ./plusu/pseudo_pt_plusu.f90 \
 ./plusu/update_kvector_plusu.f90 \
 ./so/gram_schmidt_so.f90 \
-./so/noncollinear_module.f90 \
 ./common/initialization.f90 \
 ./so/prep_pp_so.f90 \
 ./so/pseudo_pt_current_so.f90 \
@@ -116,6 +119,7 @@ F90_SRCS = \
 ./rt/em_field.f90 \
 ./maxwell/fdtd_coulomb_gauge.f90 \
 ./rt/md.f90 \
+./atom/pp/prep_density_pp.f90 \
 ./gs/initialization_dft.f90 \
 ./io/main_dft_k_expand.f90 \
 ./io/main_dft_k_expand_slice.f90 \
@@ -151,7 +155,7 @@ F_OBJ_FILES=$(addprefix $(OBJDIR)/, $(F_SRCS:.f=.o))
 
 $(SALMON_TARGET): $(F90_OBJ_FILES) $(C_OBJ_FILES) $(F_OBJ_FILES)
 	@if [ ! -d $(dir $@) ]; then mkdir -p $(dir $@); fi
-	$(FC) $(FFLAGS) -o $@ $^ -I $(OBJDIR) $(LIBLAPACK) $(LIBXC) $(MPIFLAG) $(OMPFLAG) $(CONFIG)
+	$(FC) $(LFLAGS) -o $@ $^ -I $(OBJDIR) $(LIBLAPACK) $(LIBXC) $(VHCALL_LIB) $(MPIFLAG) $(OMPFLAG) $(CONFIG)
 
 $(F90_OBJ_FILES): $(F90_SRC_FILES)
 $(C_OBJ_FILES): $(C_SRC_FILES)
@@ -160,6 +164,9 @@ $(F_OBJ_FILES): $(F_SRC_FILES)
 $(OBJDIR)/%.o: $(SRCDIR)/%.f90
 	@if [ ! -d $(dir $@) ]; then mkdir -p $(dir $@); fi
 	$(FC) $(FFLAGS) $(MODULE_SWITCH) $(OBJDIR) -o $@ -c $< -I $(OBJDIR) -I $(MAKEDIR) $(LIBXC) $(MPIFLAG) $(OMPFLAG) $(CONFIG)
+	$(eval SRC_NAME := $(shell basename $(@:.o=.L)))
+	$(eval DST_NAME := $(@:.o=.L))
+	cp -pf $(SRC_NAME) $(DST_NAME)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c 
 	@if [ ! -d $(dir $@) ]; then mkdir -p $(dir $@); fi
