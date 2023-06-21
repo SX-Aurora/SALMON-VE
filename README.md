@@ -1,19 +1,19 @@
-# SALMON: Scalable Ab-initio Light-Matter simulator for Optics and Nanoscience
+# SALMON-VE: Scalable Ab-initio Light-Matter simulator for Optics and Nanoscience optimized for SX-Aurora TSUBASA Vector Engine.
 
-SALMON is an open-source software based on first-principles time-dependent density functional theory
+SALMON (http://salmon-tddft.jp/) is an open-source software based on first-principles time-dependent density functional theory
 to describe optical responses and electron dynamics in matters induced by light electromagnetic fields.
+This is the optimized version for SX-Aurora TSUBASA Vector Engine base on SALMON-v.2.1.0.
 
-SALMON has been tested and optimized to run in the following supercomputer platforms:
+## How to make
 
-- K-computer (It is scheduled to be permanently shut down at the end of August, 2019)
-- Fujitsu FX100 supercomputer system
-- Fujitsu supercomputer (Fugaku, FX1000, FX700) with A64FX processor
-- Linux PC Cluster with Intel Xeon Phi (Knights Landing architecture)
-- Linux PC Cluster with x86-64 CPU
+Make the executable "salmon" and shared object "libvhcall.so" as follows. NOTE that put "libvhcall.so" into the run directory.
 
-For more information, please visit our website.
-
-http://salmon-tddft.jp/
+```
+cd SALMON-VE/gnu_makefiles
+make -f Makefile.sx # Executable "bin/salmon" is made.
+cd ../libvhcall
+make                # Shared object "libvhcall.so" is made.
+```
 
 ## License
 
